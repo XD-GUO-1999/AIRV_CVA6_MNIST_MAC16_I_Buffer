@@ -319,12 +319,12 @@ const struct riscv_opcode riscv_opcodes[] =
 {"pause",       0, INSN_CLASS_ZIHINTPAUSE, "", MATCH_PAUSE, MASK_PAUSE, match_opcode, 0 },
 
 /* Basic RVI instructions and aliases.  */
-//modification
+// Accelerator extension.
 {"mac16buf",        0, INSN_CLASS_I, "d,W1,W2,W3,W4",     MATCH_MAC16BUF, MASK_MAC16BUF, match_opcode, 0 },
 {"mac16buf_para",        0, INSN_CLASS_I, "d,W1,W2,W3,W4",     MATCH_MAC16BUF_PARA, MASK_MAC16BUF_PARA, match_opcode, 0 },
 {"buf4",        0, INSN_CLASS_I, "d,W1,W2,W3,W4",     MATCH_BUF4, MASK_BUF4, match_opcode, 0 },
 
-//modification
+// Accelerator extension.
 {"unimp",       0, INSN_CLASS_C, "",          0, 0xffffU, match_opcode, INSN_ALIAS },
 {"unimp",       0, INSN_CLASS_I, "",          MATCH_CSRRW|(CSR_CYCLE << OP_SH_CSR), 0xffffffffU,  match_opcode, 0 }, /* csrw cycle, x0  */
 {"ebreak",      0, INSN_CLASS_C, "",          MATCH_C_EBREAK, MASK_C_EBREAK, match_opcode, INSN_ALIAS },

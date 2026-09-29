@@ -40,7 +40,7 @@ module cvxif_fu
   logic [31:0] illegal_instr_n, illegal_instr_q;
   logic [X_NUM_RS-1:0] rs_valid;
 
-  if (cvxif_pkg::X_NUM_RS == 9) begin : gen_third_operand //modification
+  if (cvxif_pkg::X_NUM_RS == 9) begin : gen_third_operand // Nine-source path used by MAC16BUF_PARA.
     assign rs_valid = 9'b111111111;
   end else begin : gen_no_third_operand
     assign rs_valid = 2'b11;
@@ -57,7 +57,7 @@ module cvxif_fu
       cvxif_req_o.x_issue_req.id    = fu_data_i.trans_id;
       cvxif_req_o.x_issue_req.rs[0] = fu_data_i.operand_a;
       cvxif_req_o.x_issue_req.rs[1] = fu_data_i.operand_b;
-      if (cvxif_pkg::X_NUM_RS == 9) begin //modification
+      if (cvxif_pkg::X_NUM_RS == 9) begin // Forward all nine source operands to CV-X-IF.
         cvxif_req_o.x_issue_req.rs[2] = fu_data_i.imm;
         cvxif_req_o.x_issue_req.rs[3] = fu_data_i.operand_d;
         cvxif_req_o.x_issue_req.rs[4] = fu_data_i.operand_e;

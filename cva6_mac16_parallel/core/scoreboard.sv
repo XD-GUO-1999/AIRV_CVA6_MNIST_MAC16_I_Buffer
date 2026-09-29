@@ -41,7 +41,7 @@ module scoreboard #(
     output rs3_len_t                                 rs3_o,
     output logic                                     rs3_valid_o,
 
-    //modification
+    // Accelerator extension.
     input  logic         [ariane_pkg::REG_ADDR_SIZE-1:0] rs4_i,
     output riscv::xlen_t                                 rs4_o,
     output logic                                         rs4_valid_o,
@@ -333,7 +333,7 @@ module scoreboard #(
   // Read Operands (a.k.a forwarding)
   // ----------------------------------
   // read operand interface: same logic as register file
-  //modification, add rs4 and rs5
+  // Accelerator extension., add rs4 and rs5
   logic [NR_ENTRIES+CVA6Cfg.NrWbPorts-1:0] rs1_fwd_req, rs2_fwd_req, rs3_fwd_req, rs4_fwd_req, rs5_fwd_req, rs6_fwd_req, rs7_fwd_req, rs8_fwd_req, rs9_fwd_req;
   logic [NR_ENTRIES+CVA6Cfg.NrWbPorts-1:0][riscv::XLEN-1:0] rs_data;
   logic rs1_valid, rs2_valid, rs3_valid, rs4_valid, rs5_valid, rs6_valid, rs7_valid, rs8_valid, rs9_valid;
@@ -349,7 +349,7 @@ module scoreboard #(
     assign rs3_fwd_req[k] = (mem_q[trans_id_i[k]].sbe.rd == rs3_i) & wt_valid_i[k] & (~ex_i[k].valid) & (mem_q[trans_id_i[k]].is_rd_fpr_flag == (CVA6Cfg.FpPresent && ariane_pkg::is_imm_fpr(
         issue_instr_o.op
     )));
-    //modification, check the write back of rs4 and rs5
+    // Accelerator extension., check the write back of rs4 and rs5
     assign rs4_fwd_req[k] = (mem_q[trans_id_i[k]].sbe.rd == rs4_i) & wt_valid_i[k] & (~ex_i[k].valid) & (~mem_q[trans_id_i[k]].is_rd_fpr_flag);
     assign rs5_fwd_req[k] = (mem_q[trans_id_i[k]].sbe.rd == rs5_i) & wt_valid_i[k] & (~ex_i[k].valid) & (~mem_q[trans_id_i[k]].is_rd_fpr_flag);
     assign rs6_fwd_req[k] = (mem_q[trans_id_i[k]].sbe.rd == rs6_i) & wt_valid_i[k] & (~ex_i[k].valid) & (~mem_q[trans_id_i[k]].is_rd_fpr_flag);
@@ -370,7 +370,7 @@ module scoreboard #(
     assign rs3_fwd_req[k+CVA6Cfg.NrWbPorts] = (mem_q[k].sbe.rd == rs3_i) & mem_q[k].issued & mem_q[k].sbe.valid & (mem_q[k].is_rd_fpr_flag == (CVA6Cfg.FpPresent && ariane_pkg::is_imm_fpr(
         issue_instr_o.op
     )));
-    //modification: check the data in pipeline haven't write back
+    // Accelerator extension.: check the data in pipeline haven't write back
     assign rs4_fwd_req[k+CVA6Cfg.NrWbPorts] = (mem_q[k].sbe.rd == rs4_i) & mem_q[k].issued & mem_q[k].sbe.valid & (~mem_q[k].is_rd_fpr_flag);
     assign rs5_fwd_req[k+CVA6Cfg.NrWbPorts] = (mem_q[k].sbe.rd == rs5_i) & mem_q[k].issued & mem_q[k].sbe.valid & (~mem_q[k].is_rd_fpr_flag);
     assign rs6_fwd_req[k+CVA6Cfg.NrWbPorts] = (mem_q[k].sbe.rd == rs6_i) & mem_q[k].issued & mem_q[k].sbe.valid & (~mem_q[k].is_rd_fpr_flag);
@@ -390,10 +390,10 @@ module scoreboard #(
   assign rs2_valid_o = rs2_valid & ((|rs2_i) | (CVA6Cfg.FpPresent && ariane_pkg::is_rs2_fpr(
       issue_instr_o.op
   )));
-  assign rs3_valid_o = CVA6Cfg.NrRgprPorts == 9 ? rs3_valid & ((|rs3_i) | (CVA6Cfg.FpPresent && ariane_pkg::is_imm_fpr( //modification 3 -> 5
+  assign rs3_valid_o = CVA6Cfg.NrRgprPorts == 9 ? rs3_valid & ((|rs3_i) | (CVA6Cfg.FpPresent && ariane_pkg::is_imm_fpr( // Nine-port configuration uses a GPR third source.
       issue_instr_o.op
   ))) : rs3_valid;
-//modification: check if we are in x0 for s4 s5
+// Accelerator extension.: check if we are in x0 for s4 s5
   assign rs4_valid_o = rs4_valid & (|rs4_i);
   assign rs5_valid_o = rs5_valid & (|rs5_i);
   assign rs6_valid_o = rs6_valid & (|rs6_i);
@@ -462,7 +462,7 @@ module scoreboard #(
       .idx_o  ()
   );
 
-  //modification
+  // Accelerator extension.
     rr_arb_tree #(
       .NumIn(NR_ENTRIES + CVA6Cfg.NrWbPorts),
       .DataWidth(riscv::XLEN),

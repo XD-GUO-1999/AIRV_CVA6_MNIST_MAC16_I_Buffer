@@ -106,8 +106,7 @@ static inline unsigned int riscv_insn_length (insn_t insn)
   (RV_X(x, 20, 10))
 #define EXTRACT_RVV_VC_IMM(x) \
   (RV_X(x, 20, 11))
-  ////modification
-  /* mac8ex 自定义寄存器位置 */
+  /* Custom accelerator register fields W1-W4. */
 #define EXTRACT_MAC8_RS1(x) \
   (((x) >> 12) & 0x1f)
 #define EXTRACT_MAC8_RS2(x) \
@@ -236,19 +235,6 @@ static inline unsigned int riscv_insn_length (insn_t insn)
 #define RISCV_BRANCH_REACH (RISCV_IMM_REACH * RISCV_BRANCH_ALIGN)
 
 /* RV fields.  */
-// //modification
-// #define OP_MASK_MAC8EX_A     0x1f
-// #define OP_SH_MAC8EX_A       12
-
-// #define OP_MASK_MAC8EX_B     0x1f
-// #define OP_SH_MAC8EX_B       17
-
-// #define OP_MASK_MAC8EX_C     0x1f
-// #define OP_SH_MAC8EX_C       22
-
-// #define OP_MASK_MAC8EX_D     0x1f
-// #define OP_SH_MAC8EX_D       27
-// /////
 #define OP_MASK_OP		0x7f
 #define OP_SH_OP		0
 #define OP_MASK_RS2		0x1f

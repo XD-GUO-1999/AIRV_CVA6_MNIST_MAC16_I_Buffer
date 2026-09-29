@@ -29,7 +29,7 @@ module cvxif_example_coprocessor
   logic               x_issue_ready_o;
   x_issue_req_t       x_issue_req_i;
   x_issue_resp_t      x_issue_resp_o;
-  x_issue_resp_t      x_issue_resp_dec; // modification: decoded issue response from the table
+  x_issue_resp_t      x_issue_resp_dec; // Issue response produced by the instruction table decoder.
   // Commit interface
   logic               x_commit_valid_i;
   x_commit_t          x_commit_i;
@@ -81,7 +81,7 @@ module cvxif_example_coprocessor
       .x_issue_resp_o(x_issue_resp_dec)
   );
 
-  // modification: extend the issue entry with MAC16BUF/BUF4/MAC16BUF_PARA block tracking flags
+  // Keep accelerator block metadata with each FIFO entry.
   typedef struct packed {
     x_issue_req_t  req;
     x_issue_resp_t resp;
@@ -99,7 +99,7 @@ module cvxif_example_coprocessor
   x_issue_t req_i;
   x_issue_t req_o;
 
-  // modification: issue-side block counter and flags for MAC16BUF/BUF4 processing
+  // Track block position at issue time to determine first/final MAC blocks.
   // It is used only to decide whether a MAC16BUF instruction should request
   // an architectural writeback. The actual accumulation is still performed
   // later when the instruction reaches the FIFO output/result stage.
@@ -108,12 +108,12 @@ module cvxif_example_coprocessor
   logic [4:0] issue_buf_active_blocks;
   logic       issue_is_buf4;
   logic       issue_is_mac16buf;
-  logic       issue_is_mac16buf_para; //add new instruction which can do both buffer and mac
-  logic       issue_mac_op; //mac16buf and mac16buf_para
+  logic       issue_is_mac16buf_para; // Combined input-buffer fill and MAC instruction.
+  logic       issue_mac_op; // MAC operations that use the block accumulator.
   logic       issue_is_first_block;
   logic       issue_is_final_block;
 
-  // modification: detect whether the incoming issue request is BUF4 or MAC16BUF or MAC16BUF_PARA
+  // Decode the accelerator opcode at the issue interface.
   assign issue_is_buf4          = (x_issue_req_i.instr[6:0] == 7'b0101011);
   assign issue_is_mac16buf      = (x_issue_req_i.instr[6:0] == 7'b0001011);
   assign issue_is_mac16buf_para = (x_issue_req_i.instr[6:0] == 7'b1011011);
@@ -127,7 +127,7 @@ module cvxif_example_coprocessor
   // A MAC16BUF is CPU-visible only for the final block of one output element.
   // Non-final MAC16BUF instructions still complete through x_result_valid, but
   // they do not write the register file.
-  // modification: override the decoded issue response for MAC16BUF writeback semantics
+  // Only the final MAC block requests architectural writeback.
   always_comb begin
     x_issue_resp_o = x_issue_resp_dec;
     if (issue_mac_op && x_issue_resp_dec.accept) begin
@@ -140,7 +140,7 @@ module cvxif_example_coprocessor
                       (x_result_valid_o && x_result_ready_i);
   assign x_issue_ready_q = ~fifo_full;
 
-  // modification: stash MAC16BUF/BUF4 metadata in the FIFO entry for later processing
+  // Store accelerator metadata alongside the request in the FIFO.
   assign req_i.req            = x_issue_req_i;
   assign req_i.resp           = x_issue_resp_o;
   assign req_i.is_buf4        = issue_is_buf4;
@@ -149,7 +149,7 @@ module cvxif_example_coprocessor
   assign req_i.is_first_block = issue_is_first_block;
   assign req_i.is_final_block = issue_is_final_block;
 
-  // modification: track issue-side buffer block counters for MAC16BUF/BUF4 execution
+  // Advance/reset the issue-side block counter on accepted accelerator instructions.
   always_ff @(posedge clk_i or negedge rst_ni) begin : issue_block_counter
     if (!rst_ni) begin
       issue_active_blocks_q <= 5'd1;
@@ -247,7 +247,7 @@ module cvxif_example_coprocessor
 
   assign wr_block_sel = (is_buf4_ex && (buf_active_blocks != active_blocks_q)) ||
                         (is_mac16buf_para_ex && req_o.is_first_block) ? 5'd0 : wr_block_cnt_q;
-  // modification: buffer write state machine for BUF4 instructions
+  // Update input-buffer state when an accelerator instruction completes.
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
       active_blocks_q <= 5'd1;
@@ -290,7 +290,7 @@ module cvxif_example_coprocessor
           end
         end
 
-        // modification: auto local accumulator for MAC16BUF blocks
+        // Maintain the local accumulator across MAC16 blocks.
         //   first block : acc = old rd + partial_sum
         //   middle      : acc = acc_q + partial_sum
         //   final       : acc = acc_q + partial_sum, then write back
@@ -305,8 +305,8 @@ module cvxif_example_coprocessor
     end
   end
 
-  // modification: MAC16 parallel multiply-accumulate logic (for MAC16BUF)
-  //logic signed [31:0] mac_result;
+  // Compute the 16-lane INT8 partial sum for MAC16BUF/MAC16BUF_PARA.
+  
   logic signed [15:0] p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15;
   logic signed [31:0] input1, input2, input3, input4, weight1, weight2, weight3, weight4;
 
@@ -388,7 +388,7 @@ module cvxif_example_coprocessor
     x_result_o.id      = req_o.req.id;
     x_result_o.rd      = req_o.req.instr[11:7];
 
-    // modification: for auto-accumulator mode, only the final MAC16BUF block writes back
+    // Only the final block writes the accumulated result to the CPU register file.
     // Non-final MAC16BUF instructions only update acc_q locally.
     x_result_o.we = req_o.resp.writeback & x_result_valid_o & (is_mac16buf_ex || is_mac16buf_para_ex) & req_o.is_final_block;
     x_result_o.exc     = 1'b0;

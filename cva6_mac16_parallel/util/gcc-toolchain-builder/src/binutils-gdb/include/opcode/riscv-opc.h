@@ -21,7 +21,7 @@
 #ifndef RISCV_ENCODING_H
 #define RISCV_ENCODING_H
 /* Instruction opcode macros.  */
-//modification
+// Accelerator extension.
 #define MATCH_MAC16BUF 0xb
 #define MASK_MAC16BUF 0x7f
 #define MATCH_BUF4 0x2b
@@ -2791,7 +2791,7 @@
 #define CSR_VLENB 0xc22
 #endif /* RISCV_ENCODING_H */
 #ifdef DECLARE_INSN
-//modification
+// Accelerator extension.
 DECLARE_INSN(mac16buf, MATCH_MAC16BUF, MASK_MAC16BUF)
 DECLARE_INSN(buf4, MATCH_BUF4, MASK_BUF4)
 DECLARE_INSN(mac16buf_para, MATCH_MAC16BUF_PARA, MASK_MAC16BUF_PARA)

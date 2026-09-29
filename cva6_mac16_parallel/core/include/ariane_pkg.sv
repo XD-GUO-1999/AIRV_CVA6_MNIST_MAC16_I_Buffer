@@ -72,7 +72,7 @@ package ariane_pkg;
   localparam REG_ADDR_SIZE = 5;
 
   // Read ports for general purpose register files
-  localparam NR_RGPR_PORTS = 9;  // modification: we need 9 read ports for MAC16buf_PARA, 4 for inputs, and 4 for weight, 1 for rd
+  localparam NR_RGPR_PORTS = 9; // 4 weights + accumulator + 4 input words for MAC16BUF_PARA.
 
   // static debug hartinfo
   // debug causes
@@ -443,11 +443,11 @@ package ariane_pkg;
     MULHU,
     MULHSU,
     MULW,
-    //modification
+    // Accelerator extension.
     MAC16BUF,
     MAC16BUF_PARA,
     BUF4,
-    //modification
+    // Accelerator extension.
   
     // Divisions
     DIV,
@@ -578,7 +578,7 @@ package ariane_pkg;
     riscv::xlen_t             operand_a;
     riscv::xlen_t             operand_b;
     riscv::xlen_t             imm;
-    //modification
+    // Accelerator extension.
     riscv::xlen_t             operand_d;
     riscv::xlen_t             operand_e;
     riscv::xlen_t             operand_f;

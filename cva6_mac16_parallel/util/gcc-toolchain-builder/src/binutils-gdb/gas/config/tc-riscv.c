@@ -1389,9 +1389,9 @@ validate_riscv_insn (const struct riscv_opcode *opc, int length)
 		goto unknown_validate_operand;
 	    }
 	  break;
-//modification for mac8ex
-    case 'W': /* mac8ex custom registers */
-    //here we add the custom registers for mac8ex, which are encoded in the same way as normal registers 
+// Custom accelerator register operands.
+    case 'W': /* Custom accelerator registers. */
+    // W1-W4 encode normal GPR indices in custom instruction fields. 
     //but with different bits, so we need to use a different operand type to distinguish them.
 	  switch (*++oparg)
 	    {
@@ -3307,9 +3307,9 @@ riscv_ip (char *str, struct riscv_cl_insn *ip, expressionS *imm_expr,
 	      *imm_reloc = BFD_RELOC_RISCV_CALL_PLT;
 	      continue;
 
-        //modification for mac8ex
-case 'W': /* Parse mac8ex custom registers */
-//here we use 'W' to indicate mac8ex custom registers, and the next character indicates which register it is.  
+        // Custom accelerator register operands.
+case 'W': /* Parse custom accelerator registers. */
+// W selects a custom register field; the following digit selects W1-W4.  
 //The operand is encoded in the same way as normal GPRs, but goes in a different place in the instruction encoding, so we need to handle it specially here.
 	      switch (*++oparg)
 		{

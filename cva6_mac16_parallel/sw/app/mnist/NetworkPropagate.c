@@ -29,30 +29,22 @@ static int clamp(int v, int lo, int hi) {
 }
 
 /*
- * ============================================================
- * 统一 input buffer 辅助函数
- * ============================================================
+ * Input-buffer configuration helpers.
  *
- * 硬件侧约定：
- *   - input buffer 最大 400 byte = 100 个 32-bit word = 25 个 16-byte block。
- *   - buf4 的 rd 字段不作为真正写回寄存器，而是作为 mode：
+ * Hardware convention:
+ *   - Maximum input buffer: 400 bytes = 100 words = 25 blocks of 16 bytes.
+ *   - BUF4 reuses the rd field as a block-count configuration value:
+ *       active_blocks = rd + 1
+ *   - Conv1: x0  -> 1 block
+ *   - Conv2: x24 -> 25 blocks
+ *   - FC1:   x23 -> 24 blocks
+ *   - FC2:   x8  -> 9 blocks; the remaining six inputs use scalar MACs.
  *
- *         active_blocks = rd + 1
- *
- *   - Conv1: rd = x0  -> active_blocks = 1
- *   - Conv2: rd = x24 -> active_blocks = 25
- *   - FC1:   rd = x23 -> active_blocks = 24
- *   - FC2:   rd = x8  -> active_blocks = 9，剩余 6 个 input 走 scalar
- *
- * 注意：
- *   t3 = x28，t4 = x29。硬件里 rs[3]/rs[4] 固定来自 x28/x29，
- *   所以这里继续用 t3/t4 是匹配的。
+ * t3-t6 (x28-x31) carry the additional input words required by
+ * MAC16BUF_PARA and match CV-X-IF rs[5]..rs[8].
  */
 
-/* Conv1 专用：把一个 4x4x1 patch buffer 进去。
- * 这里四个指针分别指向 patch 的四行，每行连续 4 个 uint8。
- * buf4 x0 表示 active_blocks = 1，所以后续每个 mac16buf 都会读 block0。
- */
+/* Conv1 uses one 16-byte input-buffer block. */
 static inline void buffer4_setmode_conv1(void)
 {
     asm volatile(
@@ -64,10 +56,7 @@ static inline void buffer4_setmode_conv1(void)
     );
 }
 
-/* Conv2 专用：把一个 pixel 的 16 个 channels buffer 进去。
- * Conv2 一个完整 5x5x16 patch 需要连续执行 25 次这个函数。
- * buf4 x24 表示 active_blocks = 25。
- */
+/* Conv2 uses 25 input-buffer blocks for a complete 5x5x16 patch. */
 static inline void buffer4_setmode_conv2(void)
 {
     asm volatile(
@@ -79,9 +68,7 @@ static inline void buffer4_setmode_conv2(void)
     );
 }
 
-/* FC1 专用：FC1 input = 384 byte = 24 个 16-byte block。
- * buf4 x23 表示 active_blocks = 24。
- */
+/* FC1 uses 24 input-buffer blocks for its 384-byte input vector. */
 static inline void buffer4_setmode_fc1(void)
 {
     asm volatile(
@@ -93,11 +80,7 @@ static inline void buffer4_setmode_fc1(void)
     );
 }
 
-/* FC2 专用：FC2 input = 150 byte。
- * 前 144 byte = 9 个 16-byte block 用 buffer + mac16buf，
- * 最后 6 byte 用普通 scalar 处理。
- * buf4 x8 表示 active_blocks = 9。
- */
+/* FC2 buffers nine 16-byte blocks; the final six bytes use scalar MACs. */
 static inline void buffer4_setmode_fc2(void)
 {
     asm volatile(
@@ -109,10 +92,7 @@ static inline void buffer4_setmode_fc2(void)
     );
 }
 
-/* 只执行 MAC，不更新 input buffer。
- * 这个函数假设：对应的 input block 已经在硬件 input buffer 中。
- * 硬件每执行一次 mac16buf，会根据 active_blocks 自动移动 read counter。
- */
+/* Execute MAC16BUF using the current input-buffer block. */
 static inline __attribute__((always_inline))
 SUM_T mac16buf_para_conv1_aligned(
     const UDATA_T* __restrict row0,
@@ -161,7 +141,7 @@ SUM_T mac16buf_para_conv1_aligned(
 
 
 static inline __attribute__((always_inline))
-SUM_T mac16buf_para_conv1_unaligned2(
+SUM_T mac16buf_para_conv1_unaligned(
     const UDATA_T* __restrict row0,
     const UDATA_T* __restrict row1,
     const UDATA_T* __restrict row2,
@@ -178,25 +158,25 @@ SUM_T mac16buf_para_conv1_unaligned2(
         "lw %[w2],  8(%[p_wt])\n\t"
         "lw %[w3], 12(%[p_wt])\n\t"
 
-        /* row0: 拼出连续4 bytes */
+        /* Reconstruct four contiguous bytes from two halfword loads. */
         "lhu t3, 0(%[row0])\n\t"
         "lhu t0, 2(%[row0])\n\t"
         "slli t0, t0, 16\n\t"
         "or   t3, t3, t0\n\t"
 
-        /* row1 */
+        /* Row 1. */
         "lhu t4, 0(%[row1])\n\t"
         "lhu t0, 2(%[row1])\n\t"
         "slli t0, t0, 16\n\t"
         "or   t4, t4, t0\n\t"
 
-        /* row2 */
+        /* Row 2. */
         "lhu t5, 0(%[row2])\n\t"
         "lhu t0, 2(%[row2])\n\t"
         "slli t0, t0, 16\n\t"
         "or   t5, t5, t0\n\t"
 
-        /* row3 */
+        /* Row 3. */
         "lhu t6, 0(%[row3])\n\t"
         "lhu t0, 2(%[row3])\n\t"
         "slli t0, t0, 16\n\t"
@@ -1041,7 +1021,7 @@ static void convcellPropagate1(
                      * 地址为2 mod 4：
                      * 每行使用两个lhu拼接。
                      */
-                    mac16buf_para_conv1_unaligned2(
+                    mac16buf_para_conv1_unaligned(
                         row0,
                         row1,
                         row2,
@@ -1788,7 +1768,6 @@ void propagate(const UDATA_T* inputs, Target_T* outputs, UDATA_T* maxPropagate_v
     CONV1_KERNEL_WIDTH, CONV1_ACTIVATION, ENV_MEM_CONT_OFFSET, ENV_MEM_CONT_SIZE, ENV_MEM_WRAP_OFFSET, 
     ENV_MEM_WRAP_SIZE, ENV_MEM_STRIDE, CONV1_MEM_CONT_OFFSET, CONV1_MEM_CONT_SIZE, CONV1_MEM_WRAP_OFFSET, CONV1_MEM_WRAP_SIZE, CONV1_MEM_STRIDE);
 
-    //convcellPropagate1(inputs , conv1_output, conv1_biases, conv1_weights, CONV1_SCALING);
 
 #ifdef BENCHMARK
     const Tick_T end_conv1 = tick();
@@ -1821,7 +1800,6 @@ void propagate(const UDATA_T* inputs, Target_T* outputs, UDATA_T* maxPropagate_v
     CONV1_MEM_STRIDE, CONV2_MEM_CONT_OFFSET, CONV2_MEM_CONT_SIZE, CONV2_MEM_WRAP_OFFSET, 
     CONV2_MEM_WRAP_SIZE, CONV2_MEM_STRIDE);
 
-    //convcellPropagate2(conv1_output , conv2_output, conv2_biases, conv2_weights, CONV2_SCALING);
 
 #ifdef BENCHMARK
     const Tick_T end_conv2 = tick();

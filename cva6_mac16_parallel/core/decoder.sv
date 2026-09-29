@@ -1186,9 +1186,9 @@ module decoder
           instruction_o.fu      = ALU;
           instruction_o.rd[4:0] = instr.utype.rd;
         end
-// modification: custom MAC16BUF/BUF4 instruction decoding
+// Decode the custom MAC16BUF, BUF4, and MAC16BUF_PARA instructions.
         7'b0001011: begin
-          imm_select             = RS3; // modification: use RS3 as the accumulator operand source
+          imm_select             = RS3; // Use the RS3 path to transport the accumulator/additional register fields.
           instruction_o.fu       = CVXIF;            // Dispatch to the accelerator interface
           instruction_o.rs1[4:0] = instruction_i[16:12]; // Source register 1 (t1)
           instruction_o.rs2[4:0] = instruction_i[21:17]; // Source register 2 (t2)
@@ -1198,7 +1198,7 @@ module decoder
         end
 
         7'b0101011: begin
-          imm_select             = RS3; // modification: use RS3 as the accumulator operand source
+          imm_select             = RS3; // Use the RS3 path to transport the accumulator/additional register fields.
           instruction_o.fu       = CVXIF;            // Dispatch to the accelerator interface
           instruction_o.rs1[4:0] = instruction_i[16:12]; // Source register 1 (t1)
           instruction_o.rs2[4:0] = instruction_i[21:17]; // Source register 2 (t2)
@@ -1208,16 +1208,16 @@ module decoder
         end
 
         7'b1011011: begin
-          imm_select             = RS3; // modification: use RS3 as the accumulator operand source
+          imm_select             = RS3; // Use the RS3 path to transport the accumulator/additional register fields.
           instruction_o.fu       = CVXIF;            // Dispatch to the accelerator interface
           instruction_o.rs1[4:0] = instruction_i[16:12]; // Source register 1 (t1)
           instruction_o.rs2[4:0] = instruction_i[21:17]; // Source register 2 (t2)
           instruction_o.rd[4:0]  = instr.rtype.rd;      // Destination register (sum)
-          instruction_o.op       = ariane_pkg::MAC16BUF_PARA;     // Identify the BUF4 operation
+          instruction_o.op       = ariane_pkg::MAC16BUF_PARA; // Combined buffer-fill and MAC operation
           //instruction_o.result = {54'b0, instruction_i[31:27], instruction_i[26:22]}; // Add immediate info if needed
         end
 
-        // modification: end custom MAC16BUF/BUF4 decode entries
+        // End custom accelerator decode entries.
         default: illegal_instr = 1'b1;
       endcase
     end
@@ -1297,10 +1297,10 @@ module decoder
         instruction_o.result  = imm_uj_type;
         instruction_o.use_imm = 1'b1;
       end
-      RS3: begin // modification: RS3 is used as an immediate source for MAC16BUF/BUF4/MAC16BUF_PARA instructions
+      RS3: begin // Reuse the RS3 immediate path to carry the accelerator register fields.
       // Pass the appropriate value in result; non-accelerator cases use the RS3 register address.
         if (instruction_o.op == ariane_pkg::MAC16BUF || instruction_o.op == ariane_pkg::BUF4 || instruction_o.op == ariane_pkg::MAC16BUF_PARA) begin
-          instruction_o.result  = {{riscv::XLEN - 10{1'b0}}, instruction_i[31:27], instruction_i[26:22]}; // Result holds the 10-bit immediate for MAC8EX
+          instruction_o.result  = {{riscv::XLEN - 10{1'b0}}, instruction_i[31:27], instruction_i[26:22]}; // Carry the two additional encoded register indices in result[9:0].
         end else begin
           // Result holds address of FP operand RS3
           instruction_o.result  = {{riscv::XLEN - 5{1'b0}}, instr.r4type.rs3};
